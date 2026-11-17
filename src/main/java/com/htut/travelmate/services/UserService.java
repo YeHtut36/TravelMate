@@ -43,4 +43,12 @@ public class UserService {
 
         return UserResponseDto.fromEntity(savedUser);
     }
+
+    @Transactional(readOnly = true)
+    public UserResponseDto getByEmail(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new com.htut.travelmate.common.exception.ResourceNotFoundException("User", "email", normalizedEmail));
+        return UserResponseDto.fromEntity(user);
+    }
 }

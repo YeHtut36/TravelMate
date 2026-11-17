@@ -4,6 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.htut.travelmate.common.config.SecurityConfig;
 import com.htut.travelmate.common.exception.DuplicateResourceException;
 import com.htut.travelmate.common.exception.GlobalExceptionHandler;
+import com.htut.travelmate.dtos.LoginRequestDto;
 import com.htut.travelmate.dtos.RegisterRequestDto;
 import com.htut.travelmate.dtos.UserResponseDto;
 import com.htut.travelmate.enums.Role;
@@ -14,10 +15,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -37,6 +43,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private AuthenticationManager authenticationManager;
 
     @Test
     @DisplayName("POST /api/auth/register - Should return 201 Created when request is valid")
@@ -106,5 +115,51 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.title").value("Duplicate Resource"))
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.detail").value("An account with this email already exists: duplicate@example.com"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/login - Should return 200 OK and user details on valid credentials")
+    void shouldLoginSuccessfully() throws Exception {
+        LoginRequestDto request = new LoginRequestDto("traveler@example.com", "Password123!");
+        UserResponseDto response = new UserResponseDto(
+                1L, "traveler@example.com", "Jane Traveler", Role.ROLE_USER, Instant.now()
+        );
+
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "traveler@example.com", null, Collections.emptyList()
+        );
+        when(authenticationManager.authenticate(any(Authentication.class))).thenReturn(auth);
+        when(userService.getByEmail("traveler@example.com")).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("traveler@example.com"))
+                .andExpect(jsonPath("$.fullName").value("Jane Traveler"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/login - Should return 401 Unauthorized when credentials are bad")
+    void shouldReturn401OnBadCredentials() throws Exception {
+        LoginRequestDto request = new LoginRequestDto("traveler@example.com", "WrongPassword");
+
+        when(authenticationManager.authenticate(any(Authentication.class)))
+                .thenThrow(new BadCredentialsException("Bad credentials"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Authentication Failed"))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Invalid email or password"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/logout - Should return 200 OK")
+    void shouldLogoutSuccessfully() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isOk());
     }
 }
