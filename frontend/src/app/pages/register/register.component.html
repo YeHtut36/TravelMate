@@ -1,0 +1,71 @@
+<div class="auth-container">
+  <nz-card class="auth-card" [nzBordered]="false">
+    <div class="auth-header">
+      <h2 class="auth-title">🌍 Join TravelMate</h2>
+      <p class="auth-subtitle">Create an account to start tracking your journeys</p>
+    </div>
+
+    @if (errorMessage()) {
+      <nz-alert
+        nzType="error"
+        [nzMessage]="errorMessage()!"
+        nzShowIcon
+        class="auth-alert"
+      ></nz-alert>
+    }
+
+    <form nz-form [formGroup]="registerForm" (ngSubmit)="onSubmit()" nzLayout="vertical">
+      <nz-form-item>
+        <nz-form-label nzRequired>Full Name</nz-form-label>
+        <nz-form-control nzErrorTip="Please enter your full name!">
+          <nz-input-group nzPrefixIcon="user">
+            <input type="text" nz-input formControlName="fullName" placeholder="Jane Traveler" />
+          </nz-input-group>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzRequired>Email</nz-form-label>
+        <nz-form-control nzErrorTip="Please enter a valid email address!">
+          <nz-input-group nzPrefixIcon="mail">
+            <input type="email" nz-input formControlName="email" placeholder="you@example.com" />
+          </nz-input-group>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzRequired>Password</nz-form-label>
+        <nz-form-control nzErrorTip="Password must be at least 6 characters!">
+          <nz-input-group nzPrefixIcon="lock">
+            <input type="password" nz-input formControlName="password" placeholder="At least 6 characters" />
+          </nz-input-group>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzRequired>Confirm Password</nz-form-label>
+        <nz-form-control nzErrorTip="Passwords do not match!">
+          <nz-input-group nzPrefixIcon="lock">
+            <input type="password" nz-input formControlName="confirmPassword" placeholder="Confirm your password" />
+          </nz-input-group>
+        </nz-form-control>
+      </nz-form-item>
+
+      <button
+        nz-button
+        nzType="primary"
+        nzBlock
+        nzSize="large"
+        [nzLoading]="loading()"
+        type="submit"
+        class="auth-submit-btn"
+      >
+        Create Account
+      </button>
+
+      <div class="auth-footer">
+        Already have an account? <a routerLink="/login">Sign in</a>
+      </div>
+    </form>
+  </nz-card>
+</div>

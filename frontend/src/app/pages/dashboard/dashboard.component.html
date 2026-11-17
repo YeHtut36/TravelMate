@@ -1,0 +1,46 @@
+<div class="dashboard-container">
+  @if (authService.currentUser(); as user) {
+    <div class="dashboard-header">
+      <div class="user-info">
+        <nz-avatar nzIcon="user" [nzSize]="64" class="user-avatar"></nz-avatar>
+        <div>
+          <h2 class="user-name">Welcome back, {{ user.fullName }}!</h2>
+          <p class="user-email">
+            {{ user.email }}
+            <nz-tag nzColor="blue" class="user-role">{{ user.role === 'ROLE_ADMIN' ? 'Admin' : 'Traveler' }}</nz-tag>
+          </p>
+        </div>
+      </div>
+      <button nz-button nzDanger nzType="default" (click)="onLogout()">
+        <span nz-icon nzType="logout"></span> Sign Out
+      </button>
+    </div>
+
+    <div nz-row [nzGutter]="[16, 16]" class="stats-row">
+      <div nz-col [nzXs]="24" [nzSm]="8">
+        <nz-card nzTitle="📍 Visited Destinations" [nzBordered]="false" class="stat-card">
+          <p class="stat-number">0</p>
+          <p class="stat-desc">Places you've explored</p>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="8">
+        <nz-card nzTitle="🗺️ Bucket List" [nzBordered]="false" class="stat-card">
+          <p class="stat-number">0</p>
+          <p class="stat-desc">Future adventures planned</p>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="8">
+        <nz-card nzTitle="📸 Travel Photos" [nzBordered]="false" class="stat-card">
+          <p class="stat-number">0</p>
+          <p class="stat-desc">Captured memories</p>
+        </nz-card>
+      </div>
+    </div>
+
+    <nz-card nzTitle="🚀 Next Milestone: Location Management (CRUD)" class="milestone-card" [nzBordered]="false">
+      <p>Your authentication is fully operational! In the next step, we will connect the interactive map and let you save, edit, and view your visited travel locations.</p>
+    </nz-card>
+  }
+</div>
