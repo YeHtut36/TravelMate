@@ -4,6 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.htut.travelmate.common.config.SecurityConfig;
 import com.htut.travelmate.common.exception.DuplicateResourceException;
 import com.htut.travelmate.common.exception.GlobalExceptionHandler;
+import com.htut.travelmate.common.security.UserPrincipal;
 import com.htut.travelmate.dtos.LoginRequestDto;
 import com.htut.travelmate.dtos.RegisterRequestDto;
 import com.htut.travelmate.dtos.UserResponseDto;
@@ -27,6 +28,8 @@ import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -161,5 +164,33 @@ class AuthControllerTest {
     void shouldLogoutSuccessfully() throws Exception {
         mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/auth/me - Should return 200 OK and user details when authenticated")
+    void shouldReturnCurrentUserWhenAuthenticated() throws Exception {
+        UserPrincipal principal = new UserPrincipal(
+                1L, "traveler@example.com", "hash", "Jane Traveler", Role.ROLE_USER
+        );
+        Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+        UserResponseDto response = new UserResponseDto(
+                1L, "traveler@example.com", "Jane Traveler", Role.ROLE_USER, Instant.now()
+        );
+        when(userService.getByEmail("traveler@example.com")).thenReturn(response);
+
+        mockMvc.perform(get("/api/auth/me")
+                        .with(authentication(auth)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.email").value("traveler@example.com"))
+                .andExpect(jsonPath("$.fullName").value("Jane Traveler"));
+    }
+
+    @Test
+    @DisplayName("GET /api/auth/me - Should return 401 Unauthorized when unauthenticated")
+    void shouldReturn401WhenUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized());
     }
 }
