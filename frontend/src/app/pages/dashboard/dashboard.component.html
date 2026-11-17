@@ -1,46 +1,471 @@
-<div class="dashboard-container">
-  @if (authService.currentUser(); as user) {
-    <div class="dashboard-header">
-      <div class="user-info">
-        <nz-avatar nzIcon="user" [nzSize]="64" class="user-avatar"></nz-avatar>
-        <div>
-          <h2 class="user-name">Welcome back, {{ user.fullName }}!</h2>
-          <p class="user-email">
-            {{ user.email }}
-            <nz-tag nzColor="blue" class="user-role">{{ user.role === 'ROLE_ADMIN' ? 'Admin' : 'Traveler' }}</nz-tag>
-          </p>
+<div class="dashboard-page">
+  <!-- Top Hero Header -->
+  <header class="dashboard-hero">
+    <div class="hero-content">
+      <div class="user-greeting">
+        <nz-avatar nzIcon="user" [nzSize]="56" class="avatar-gradient"></nz-avatar>
+        <div class="greeting-text">
+          <div class="name-badge-row">
+            <h1 class="welcome-title">Welcome back, {{ authService.currentUser()?.fullName }}!</h1>
+            <nz-tag nzColor="blue" class="traveler-tag">
+              <span nz-icon nzType="compass"></span> Explorer
+            </nz-tag>
+          </div>
+          <p class="welcome-subtitle">Track, curate, and cherish your journeys around the globe.</p>
         </div>
       </div>
-      <button nz-button nzDanger nzType="default" (click)="onLogout()">
-        <span nz-icon nzType="logout"></span> Sign Out
+
+      <div class="hero-actions">
+        <div class="quick-stats">
+          <div class="stat-pill">
+            <span class="stat-icon">📍</span>
+            <div class="stat-meta">
+              <span class="stat-value">{{ locationService.stats().totalLocations }}</span>
+              <span class="stat-label">Destinations</span>
+            </div>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-icon">🌍</span>
+            <div class="stat-meta">
+              <span class="stat-value">{{ locationService.stats().totalCountries }}</span>
+              <span class="stat-label">Countries</span>
+            </div>
+          </div>
+        </div>
+
+        <button nz-button nzType="primary" nzSize="large" class="add-btn" (click)="openCreateDrawer()">
+          <span nz-icon nzType="plus"></span> Add Destination
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Filter & Controls Toolbar -->
+  <section class="toolbar-section">
+    <div class="search-and-view">
+      <nz-input-group nzPrefixIcon="search" class="search-input">
+        <input
+          type="text"
+          nz-input
+          placeholder="Search destinations by title, city, country, or notes..."
+          [value]="searchQuery()"
+          (input)="onSearchChange($event)"
+        />
+      </nz-input-group>
+
+      <div class="view-mode-toggle">
+        <button
+          nz-button
+          [nzType]="viewMode() === 'grid' ? 'primary' : 'default'"
+          (click)="setViewMode('grid')"
+          nz-tooltip
+          nzTooltipTitle="Grid View"
+        >
+          <span nz-icon nzType="appstore"></span>
+        </button>
+        <button
+          nz-button
+          [nzType]="viewMode() === 'table' ? 'primary' : 'default'"
+          (click)="setViewMode('table')"
+          nz-tooltip
+          nzTooltipTitle="Table View"
+        >
+          <span nz-icon nzType="bars"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Category Pills -->
+    <div class="category-pills">
+      <button
+        type="button"
+        class="category-pill"
+        [class.active]="selectedCategory() === 'ALL'"
+        (click)="setCategoryFilter('ALL')"
+      >
+        <span class="pill-icon">🌟</span>
+        <span>All</span>
+        <span class="pill-count">{{ locationService.locations().length }}</span>
       </button>
+
+      @for (cat of categories; track cat) {
+        <button
+          type="button"
+          class="category-pill"
+          [class.active]="selectedCategory() === cat"
+          (click)="setCategoryFilter(cat)"
+        >
+          <span nz-icon [nzType]="getMeta(cat).icon" class="pill-icon"></span>
+          <span>{{ getMeta(cat).label }}</span>
+        </button>
+      }
     </div>
+  </section>
 
-    <div nz-row [nzGutter]="[16, 16]" class="stats-row">
-      <div nz-col [nzXs]="24" [nzSm]="8">
-        <nz-card nzTitle="📍 Visited Destinations" [nzBordered]="false" class="stat-card">
-          <p class="stat-number">0</p>
-          <p class="stat-desc">Places you've explored</p>
-        </nz-card>
+  <!-- Main Content Area -->
+  <main class="content-section">
+    @if (locationService.isLoading()) {
+      <div class="loading-state">
+        <nz-spin nzSimple [nzSize]="'large'" nzTip="Loading your travel diary..."></nz-spin>
       </div>
+    } @else if (filteredLocations().length === 0) {
+      <div class="empty-state-card">
+        <nz-empty
+          [nzNotFoundImage]="'simple'"
+          [nzNotFoundContent]="noContentTpl"
+          [nzNotFoundFooter]="noFooterTpl"
+        >
+          <ng-template #noContentTpl>
+            <div class="empty-message">
+              <h3>No destinations found</h3>
+              @if (searchQuery() || selectedCategory() !== 'ALL') {
+                <p>Try clearing your search query or selecting a different category filter.</p>
+              } @else {
+                <p>You haven't logged any travel locations yet. Start by adding your first favorite place!</p>
+              }
+            </div>
+          </ng-template>
 
-      <div nz-col [nzXs]="24" [nzSm]="8">
-        <nz-card nzTitle="🗺️ Bucket List" [nzBordered]="false" class="stat-card">
-          <p class="stat-number">0</p>
-          <p class="stat-desc">Future adventures planned</p>
-        </nz-card>
+          <ng-template #noFooterTpl>
+            @if (searchQuery() || selectedCategory() !== 'ALL') {
+              <button nz-button nzType="default" (click)="searchQuery.set(''); selectedCategory.set('ALL')">
+                Reset Filters
+              </button>
+            } @else {
+              <button nz-button nzType="primary" (click)="openCreateDrawer()">
+                <span nz-icon nzType="plus"></span> Add Your First Destination
+              </button>
+            }
+          </ng-template>
+        </nz-empty>
       </div>
+    } @else {
+      <!-- Grid Card View -->
+      @if (viewMode() === 'grid') {
+        <div class="locations-grid">
+          @for (loc of filteredLocations(); track loc.id) {
+            <article class="travel-card">
+              <div class="card-top-bar">
+                <span
+                  class="category-badge"
+                  [style.color]="getMeta(loc.category).color"
+                  [style.backgroundColor]="getMeta(loc.category).bgColor"
+                >
+                  <span nz-icon [nzType]="getMeta(loc.category).icon"></span>
+                  {{ getMeta(loc.category).label }}
+                </span>
 
-      <div nz-col [nzXs]="24" [nzSm]="8">
-        <nz-card nzTitle="📸 Travel Photos" [nzBordered]="false" class="stat-card">
-          <p class="stat-number">0</p>
-          <p class="stat-desc">Captured memories</p>
-        </nz-card>
+                <div class="card-actions">
+                  <button
+                    nz-button
+                    nzType="text"
+                    nzShape="circle"
+                    nzSize="small"
+                    nz-tooltip
+                    nzTooltipTitle="Edit destination"
+                    class="action-btn edit-btn"
+                    (click)="openEditDrawer(loc)"
+                  >
+                    <span nz-icon nzType="edit"></span>
+                  </button>
+
+                  <button
+                    nz-button
+                    nzType="text"
+                    nzShape="circle"
+                    nzSize="small"
+                    nzDanger
+                    nz-tooltip
+                    nzTooltipTitle="Delete destination"
+                    nz-popconfirm
+                    nzPopconfirmTitle="Are you sure you want to delete this destination?"
+                    nzPopconfirmPlacement="topRight"
+                    nzOkText="Yes, delete"
+                    nzCancelText="Cancel"
+                    (nzOnConfirm)="deleteLocation(loc.id)"
+                    class="action-btn delete-btn"
+                  >
+                    <span nz-icon nzType="delete"></span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <h3 class="location-title">{{ loc.title }}</h3>
+                <p class="location-geo">
+                  <span nz-icon nzType="environment" class="geo-icon"></span>
+                  {{ loc.city }}, {{ loc.country }}
+                </p>
+
+                @if (loc.description) {
+                  <p class="location-desc">{{ loc.description }}</p>
+                }
+              </div>
+
+              <div class="card-footer">
+                @if (loc.visitedAt) {
+                  <span class="meta-tag visited-tag" nz-tooltip nzTooltipTitle="Date visited">
+                    <span nz-icon nzType="calendar"></span>
+                    {{ loc.visitedAt | date:'mediumDate' }}
+                  </span>
+                }
+
+                @if (loc.latitude && loc.longitude) {
+                  <span
+                    class="meta-tag coords-tag"
+                    nz-tooltip
+                    [nzTooltipTitle]="'Lat: ' + loc.latitude + ', Lng: ' + loc.longitude"
+                  >
+                    <span nz-icon nzType="compass"></span>
+                    {{ loc.latitude | number:'1.2-2' }}, {{ loc.longitude | number:'1.2-2' }}
+                  </span>
+                }
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <!-- Table View -->
+        <div class="table-container">
+          <nz-table
+            #basicTable
+            [nzData]="filteredLocations()"
+            [nzBordered]="false"
+            [nzPageSize]="10"
+            class="custom-table"
+          >
+            <thead>
+              <tr>
+                <th>Destination</th>
+                <th>City & Country</th>
+                <th>Category</th>
+                <th>Visited Date</th>
+                <th>Coordinates</th>
+                <th nzAlign="right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (loc of basicTable.data; track loc.id) {
+                <tr>
+                  <td>
+                    <strong>{{ loc.title }}</strong>
+                    @if (loc.description) {
+                      <div class="table-desc">{{ loc.description }}</div>
+                    }
+                  </td>
+                  <td>
+                    <span nz-icon nzType="environment" class="geo-icon"></span>
+                    {{ loc.city }}, {{ loc.country }}
+                  </td>
+                  <td>
+                    <span
+                      class="category-badge small"
+                      [style.color]="getMeta(loc.category).color"
+                      [style.backgroundColor]="getMeta(loc.category).bgColor"
+                    >
+                      <span nz-icon [nzType]="getMeta(loc.category).icon"></span>
+                      {{ getMeta(loc.category).label }}
+                    </span>
+                  </td>
+                  <td>
+                    {{ loc.visitedAt ? (loc.visitedAt | date:'mediumDate') : '—' }}
+                  </td>
+                  <td>
+                    @if (loc.latitude && loc.longitude) {
+                      <code>{{ loc.latitude | number:'1.2-2' }}, {{ loc.longitude | number:'1.2-2' }}</code>
+                    } @else {
+                      <span class="muted-text">—</span>
+                    }
+                  </td>
+                  <td nzAlign="right">
+                    <button
+                      nz-button
+                      nzType="text"
+                      nzSize="small"
+                      (click)="openEditDrawer(loc)"
+                    >
+                      <span nz-icon nzType="edit"></span>
+                    </button>
+                    <button
+                      nz-button
+                      nzType="text"
+                      nzDanger
+                      nzSize="small"
+                      nz-popconfirm
+                      nzPopconfirmTitle="Are you sure you want to delete this destination?"
+                      (nzOnConfirm)="deleteLocation(loc.id)"
+                    >
+                      <span nz-icon nzType="delete"></span>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        </div>
+      }
+    }
+  </main>
+
+  <!-- Slide-over Drawer for Add / Edit Destination -->
+  <nz-drawer
+    [nzVisible]="isDrawerVisible()"
+    [nzWidth]="520"
+    [nzTitle]="drawerTitleTpl"
+    [nzFooter]="drawerFooterTpl"
+    (nzOnClose)="closeDrawer()"
+  >
+    <ng-container *nzDrawerContent>
+      <form nz-form [formGroup]="locationForm" nzLayout="vertical" class="drawer-form">
+        <!-- Title -->
+        <nz-form-item>
+          <nz-form-label nzRequired nzFor="title">Destination Title</nz-form-label>
+          <nz-form-control nzErrorTip="Please enter a destination title (max 120 chars)">
+            <input
+              nz-input
+              id="title"
+              formControlName="title"
+              placeholder="e.g. Eiffel Tower, Bagan Temples, Grand Canyon..."
+            />
+          </nz-form-control>
+        </nz-form-item>
+
+        <!-- Category Picker -->
+        <nz-form-item>
+          <nz-form-label nzRequired nzFor="category">Category</nz-form-label>
+          <nz-form-control nzErrorTip="Please select a category">
+            <nz-select id="category" formControlName="category" nzPlaceHolder="Select category">
+              @for (cat of categories; track cat) {
+                <nz-option
+                  [nzValue]="cat"
+                  [nzLabel]="getMeta(cat).label"
+                  [nzCustomContent]="true"
+                >
+                  <span nz-icon [nzType]="getMeta(cat).icon" [style.color]="getMeta(cat).color"></span>
+                  <span style="margin-left: 8px;">{{ getMeta(cat).label }}</span>
+                </nz-option>
+              }
+            </nz-select>
+          </nz-form-control>
+        </nz-form-item>
+
+        <!-- City & Country 2-Column Row -->
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired nzFor="city">City / Region</nz-form-label>
+              <nz-form-control nzErrorTip="City is required">
+                <input nz-input id="city" formControlName="city" placeholder="e.g. Paris" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired nzFor="country">Country</nz-form-label>
+              <nz-form-control nzErrorTip="Country is required">
+                <input nz-input id="country" formControlName="country" placeholder="e.g. France" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <!-- Coordinates 2-Column Row -->
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzFor="latitude">
+                Latitude
+                <span class="field-hint">(optional)</span>
+              </nz-form-label>
+              <nz-form-control nzErrorTip="Must be between -90 and 90">
+                <input
+                  nz-input
+                  type="number"
+                  step="0.0001"
+                  id="latitude"
+                  formControlName="latitude"
+                  placeholder="e.g. 48.8584"
+                />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzFor="longitude">
+                Longitude
+                <span class="field-hint">(optional)</span>
+              </nz-form-label>
+              <nz-form-control nzErrorTip="Must be between -180 and 180">
+                <input
+                  nz-input
+                  type="number"
+                  step="0.0001"
+                  id="longitude"
+                  formControlName="longitude"
+                  placeholder="e.g. 2.2945"
+                />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <!-- Visited Date -->
+        <nz-form-item>
+          <nz-form-label nzFor="visitedAt">
+            Date Visited
+            <span class="field-hint">(optional)</span>
+          </nz-form-label>
+          <nz-form-control>
+            <nz-date-picker
+              id="visitedAt"
+              formControlName="visitedAt"
+              style="width: 100%;"
+              nzPlaceHolder="Select date visited"
+            ></nz-date-picker>
+          </nz-form-control>
+        </nz-form-item>
+
+        <!-- Description / Notes -->
+        <nz-form-item>
+          <nz-form-label nzFor="description">
+            Notes & Memories
+            <span class="field-hint">(optional)</span>
+          </nz-form-label>
+          <nz-form-control nzErrorTip="Description cannot exceed 2000 characters">
+            <textarea
+              nz-input
+              id="description"
+              formControlName="description"
+              rows="4"
+              placeholder="What made this place special? Favorite food, scenic spots, travel tips..."
+            ></textarea>
+          </nz-form-control>
+        </nz-form-item>
+      </form>
+    </ng-container>
+
+    <ng-template #drawerTitleTpl>
+      <div class="drawer-header-title">
+        <span nz-icon [nzType]="editingLocationId() ? 'edit' : 'plus'"></span>
+        <span>{{ editingLocationId() ? 'Edit Destination' : 'Add New Destination' }}</span>
       </div>
-    </div>
+    </ng-template>
 
-    <nz-card nzTitle="🚀 Next Milestone: Location Management (CRUD)" class="milestone-card" [nzBordered]="false">
-      <p>Your authentication is fully operational! In the next step, we will connect the interactive map and let you save, edit, and view your visited travel locations.</p>
-    </nz-card>
-  }
+    <ng-template #drawerFooterTpl>
+      <div class="drawer-footer-actions">
+        <button nz-button nzType="default" (click)="closeDrawer()" [disabled]="isSubmitting()">
+          Cancel
+        </button>
+        <button
+          nz-button
+          nzType="primary"
+          [nzLoading]="isSubmitting()"
+          (click)="submitLocation()"
+        >
+          <span nz-icon nzType="check"></span>
+          {{ editingLocationId() ? 'Save Changes' : 'Add Destination' }}
+        </button>
+      </div>
+    </ng-template>
+  </nz-drawer>
 </div>
